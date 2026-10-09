@@ -1,0 +1,177 @@
+ALFABET = "AĂÂBCDEFGHIJKLMNOPQRSȘTȚUVWXYZ"
+LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+RANDURI = 5
+COLOANE = 6
+LUNGIME_MIN_CHEIE = 7
+
+
+# verifica daca un caracter este litera latina A-Z sau a-z
+def este_latin(c):
+    return c.upper() in LATIN and c.isascii()
+
+
+# verifica mesajul: doar A-Z si a-z, fara alte valori
+def pregateste_mesaj(text):
+    if not text:
+        raise ValueError("Mesajul nu poate fi gol.")
+
+    if not all(este_latin(c) for c in text):
+        raise ValueError(
+            "Mesajul conține caractere nepermise.\n"
+            "Diapazon corect: litere de la 'A' la 'Z' și de la 'a' la 'z' "
+            "(fără spații, cifre, diacritice sau semne)."
+        )
+
+    return text.upper()
+
+
+# verifica criptograma: simbolurile din tabel (A-Z, Ă Â Î Ș Ț), lungime para
+def pregateste_criptograma(text):
+    if not text:
+        raise ValueError("Criptograma nu poate fi goală.")
+
+    if not all(c.upper() in ALFABET + "Î" for c in text):
+        raise ValueError(
+            "Criptograma conține caractere nepermise.\n"
+            "Diapazon corect: litere de la 'A' la 'Z', de la 'a' la 'z' "
+            "și Ă Â Î Ș Ț (fără spații, cifre sau alte semne)."
+        )
+
+    if len(text) % 2 != 0:
+        raise ValueError(
+            f"Criptograma trebuie să aibă lungime pară (acum are {len(text)} simboluri)."
+        )
+
+    # Î este in aceeasi celula cu I
+    return text.upper().replace("Î", "I")
+
+
+# citeste cheia: minim 7 litere, doar A-Z / a-z
+def citeste_cheie():
+    while True:
+        cheie = input("Introdu cheia (minim 7 litere): ")
+
+        if len(cheie) < LUNGIME_MIN_CHEIE:
+            print(f"Cheia trebuie să aibă cel puțin {LUNGIME_MIN_CHEIE} litere.")
+            continue
+
+        if not all(este_latin(c) for c in cheie):
+            print("Diapazon corect: litere de la 'A' la 'Z' și de la 'a' la 'z' "
+                  "(fără spații, cifre sau diacritice).")
+            continue
+
+        return cheie.upper()
+
+
+# construieste tabelul 5x6: mai intai cheia (fara repetari), apoi restul
+def construieste_tabel(cheie):
+    simboluri = ""
+
+    for c in cheie + ALFABET:
+        if c not in simboluri:
+            simboluri += c
+
+    return [simboluri[i:i + COLOANE] for i in range(0, RANDURI * COLOANE, COLOANE)]
+
+
+# afiseaza tabelul; celula lui I apare ca I/Î
+def afiseaza_tabel(tabel):
+    print("\nTabelul Playfair 5x6:")
+    for rand in tabel:
+        print("  " + " ".join(("I/Î" if c == "I" else c).ljust(3) for c in rand))
+
+
+# returneaza (rand, coloana) pentru un simbol
+def gaseste_pozitie(tabel, c):
+    for r in range(RANDURI):
+        for k in range(COLOANE):
+            if tabel[r][k] == c:
+                return r, k
+
+
+# imparte mesajul in perechi; intre litere identice se pune X (Q daca litera e X)
+def creeaza_perechi(mesaj):
+    perechi = []
+    i = 0
+
+    while i < len(mesaj):
+        a = mesaj[i]
+        completare = "Q" if a == "X" else "X"
+
+        if i + 1 < len(mesaj) and mesaj[i + 1] != a:
+            perechi.append((a, mesaj[i + 1]))
+            i += 2
+        else:
+            perechi.append((a, completare))
+            i += 1
+
+    return perechi
+
+
+# regulile Playfair; pas = 1 criptare, pas = -1 decriptare
+def transforma_pereche(tabel, a, b, pas):
+    ra, ca = gaseste_pozitie(tabel, a)
+    rb, cb = gaseste_pozitie(tabel, b)
+
+    if ra == rb:        # acelasi rand
+        return tabel[ra][(ca + pas) % COLOANE] + tabel[rb][(cb + pas) % COLOANE]
+
+    if ca == cb:        # aceeasi coloana
+        return tabel[(ra + pas) % RANDURI][ca] + tabel[(rb + pas) % RANDURI][cb]
+
+    return tabel[ra][cb] + tabel[rb][ca]    # dreptunghi
+
+
+def cripteaza(mesaj, tabel):
+    rezultat = ""
+    for a, b in creeaza_perechi(mesaj):
+        rezultat += transforma_pereche(tabel, a, b, 1)
+    return rezultat
+
+
+def decripteaza(cripto, tabel):
+    rezultat = ""
+    for i in range(0, len(cripto), 2):
+        rezultat += transforma_pereche(tabel, cripto[i], cripto[i + 1], -1)
+    return rezultat
+
+
+def main():
+    while True:
+        print("\nALGORITMUL PLAYFAIR")
+        print("1 - Criptare")
+        print("2 - Decriptare")
+        print("0 - Ieșire")
+
+        alegere = input("Alege operația: ").strip()
+
+        if alegere == "0":
+            print("Programul s-a încheiat.")
+            break
+
+        if alegere not in ("1", "2"):
+            print("Introdu 1, 2 sau 0.")
+            continue
+
+        cheie = citeste_cheie()
+        tabel = construieste_tabel(cheie)
+        afiseaza_tabel(tabel)
+
+        try:
+            if alegere == "1":
+                mesaj = pregateste_mesaj(input("\nIntrodu mesajul: "))
+                print("\nCriptograma:", cripteaza(mesaj, tabel))
+            else:
+                cripto = pregateste_criptograma(input("\nIntrodu criptograma: "))
+                print("\nMesajul decriptat:", decripteaza(cripto, tabel))
+                print("(Elimină manual X/Q ajutătoare, alege I sau Î și adaugă spațiile.)")
+
+        except ValueError as eroare:
+            print("\nEroare:", eroare)
+
+
+if __name__ == "__main__":
+    main()
+
+    #daca folosim saptii le anulam 
